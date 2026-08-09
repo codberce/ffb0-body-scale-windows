@@ -1,4 +1,4 @@
-Cântar Clinică is self-contained and includes components from the Microsoft .NET runtime and Windows SDK for .NET.
+FFB0 Body Scale is self-contained and includes components from the Microsoft .NET runtime and Windows SDK for .NET.
 Microsoft .NET is licensed under the MIT License and includes its own third-party notices:
 https://github.com/dotnet/runtime
 
