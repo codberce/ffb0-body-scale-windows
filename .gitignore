@@ -1,0 +1,13 @@
+bin/
+obj/
+publish/
+publish-*/
+*.exe
+*.user
+*.suo
+*.log
+.vs/
+.idea/
+.vscode/
+TestResults/
+nativepreview*.ok
