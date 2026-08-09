@@ -1,0 +1,62 @@
+name: Build Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish self-contained Windows executable
+        shell: pwsh
+        run: >-
+          dotnet publish .\FFB0BodyScale.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          --output .\release
+          --nologo
+
+      - name: Run packaged application self-tests
+        shell: pwsh
+        run: |
+          & ".\release\FFB0 Body Scale.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Application self-test failed with exit code $LASTEXITCODE" }
+          & ".\release\FFB0 Body Scale.exe" --report-self-test
+          if ($LASTEXITCODE -ne 0) { throw "Report self-test failed with exit code $LASTEXITCODE" }
+
+      - name: Generate SHA-256 checksum
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path -LiteralPath ".\release\FFB0 Body Scale.exe"
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  FFB0 Body Scale.exe" | Set-Content -LiteralPath "$exe.sha256" -Encoding ascii
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" `
+            ".\release\FFB0 Body Scale.exe" `
+            ".\release\FFB0 Body Scale.exe.sha256" `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --title "FFB0 Body Scale $env:GITHUB_REF_NAME" `
+            --generate-notes
