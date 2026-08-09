@@ -1,6 +1,6 @@
 # FFB0 Body Scale for Windows
 
-A privacy-first Windows desktop application for body-composition scales that implement the FFB0 Bluetooth Low Energy protocol. It provides a clinic-oriented Romanian interface for patient profiles, measurement history, body-composition ranges, search, and native Windows print/PDF reports.
+A privacy-first Windows desktop application for body-composition scales that implement the FFB0 Bluetooth Low Energy protocol. It provides a clinic-oriented English interface for patient profiles, measurement history, body-composition ranges, search, and native Windows print/PDF reports.
 
 ## Features
 
