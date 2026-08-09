@@ -28,7 +28,7 @@ using Windows.Graphics.Printing;
 using Windows.Graphics.Printing.OptionDetails;
 using Windows.Storage.Streams;
 
-namespace FI2319Native
+namespace FFB0Scale
 {
     public sealed class ProfileSettings
     {
@@ -288,7 +288,7 @@ namespace FI2319Native
 
     public static class DataStore
     {
-        public static readonly string LocalDir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FI2319 Clinic");
+        public static readonly string LocalDir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FFB0 Body Scale");
         public static readonly string SettingsPath=Path.Combine(LocalDir,"settings.json");
         public static readonly string HistoryPath=Path.Combine(LocalDir,"measurements.json");
         private static readonly JsonSerializerOptions JsonOptions=new JsonSerializerOptions{WriteIndented=true};
@@ -341,7 +341,7 @@ namespace FI2319Native
         public void Connect(UserProfile profile)
         {
             if(Interlocked.CompareExchange(ref _connecting,1,0)!=0)return;
-            _profile=profile; RaiseStatus("Looking for FI2319WB-D — briefly step on the scale to wake it…");
+            _profile=profile; RaiseStatus("Looking for an FFB0-compatible scale — briefly step on it to wake it…");
             _watcher=new BluetoothLEAdvertisementWatcher(); _watcher.ScanningMode=BluetoothLEScanningMode.Active;
             _watcher.Received+=WatcherReceived;_watcher.Start();
         }
@@ -356,7 +356,7 @@ namespace FI2319Native
         }
         private async Task ConnectDevice(ulong address)
         {
-            RaiseStatus("Connecting to MY_SCALE…");
+            RaiseStatus("Connecting to FFB0 scale…");
             _device=await BluetoothLEDevice.FromBluetoothAddressAsync(address).AsTask();
             if(_device==null)throw new InvalidOperationException("Windows could not open the scale.");
             _session=await GattSession.FromDeviceIdAsync(_device.BluetoothDeviceId).AsTask();
@@ -521,12 +521,12 @@ namespace FI2319Native
         {
             _connect.Click+=delegate{Connect();};_disconnect.Click+=delegate{_ble.Disconnect();};
             _overviewButton.Click+=delegate{ShowOverview();};_historyButton.Click+=delegate{ShowHistory();};
-            Find<Button>("OpenLogsButton").Click+=delegate{string p=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),"FI2319 Scale Logs");Directory.CreateDirectory(p);Process.Start(new ProcessStartInfo{FileName=p,UseShellExecute=true});};
+            Find<Button>("OpenLogsButton").Click+=delegate{string p=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),"FFB0 Scale Logs");Directory.CreateDirectory(p);Process.Start(new ProcessStartInfo{FileName=p,UseShellExecute=true});};
             Find<Button>("ExportButton").Click+=delegate{ExportCsv();};
             _window.Closed+=delegate{Dispose();};
             _ble.Status+=s=>Ui(delegate{_status.Text=s;});_ble.Connected+=a=>Ui(delegate{SetConnection(true,"Connected · "+a);});
             _ble.Disconnected+=()=>Ui(delegate{SetConnection(false,"Disconnected");});_ble.Weight+=(kg,stable)=>Ui(delegate{ShowDashboard();_weightText.Text=kg.ToString("F2")+" kg"+(stable?"  ✓":"");});
-            _ble.Result+=r=>Ui(delegate{RenderResult(r,true);});_ble.Error+=s=>Ui(delegate{_status.Text=s;SetConnection(false,"Disconnected");MessageBox.Show(_window,s,"FI2319 Scale",MessageBoxButton.OK,MessageBoxImage.Warning);});
+            _ble.Result+=r=>Ui(delegate{RenderResult(r,true);});_ble.Error+=s=>Ui(delegate{_status.Text=s;SetConnection(false,"Disconnected");MessageBox.Show(_window,s,"FFB0 Body Scale",MessageBoxButton.OK,MessageBoxImage.Warning);});
         }
         private void Ui(Action a){if(_window.Dispatcher.CheckAccess())a();else _window.Dispatcher.BeginInvoke(a);}
         private bool TryProfile(bool showError)
@@ -567,7 +567,7 @@ namespace FI2319Native
         private void RefreshHistory(){_historyGrid.ItemsSource=null;_historyGrid.ItemsSource=_historyRows;}
         private void ExportCsv()
         {
-            var d=new SaveFileDialog{Title="Export measurement history",Filter="CSV files (*.csv)|*.csv",FileName="FI2319-history.csv"};if(d.ShowDialog(_window)!=true)return;
+            var d=new SaveFileDialog{Title="Export measurement history",Filter="CSV files (*.csv)|*.csv",FileName="FFB0-scale-history.csv"};if(d.ShowDialog(_window)!=true)return;
             using(var w=new StreamWriter(d.FileName,false,new UTF8Encoding(true))){w.WriteLine("measured_at,weight_kg,bmi,body_fat_percent,body_water_percent,muscle_percent,heart_rate_bpm,impedance_ohm");foreach(var r in _historyRows)w.WriteLine(string.Join(",",new[]{r.measured_at,r.weight_kg.ToString(CultureInfo.InvariantCulture),r.bmi.ToString(CultureInfo.InvariantCulture),r.body_fat_percent.ToString(CultureInfo.InvariantCulture),r.body_water_percent.ToString(CultureInfo.InvariantCulture),r.muscle_percent.ToString(CultureInfo.InvariantCulture),r.heart_rate_bpm.ToString(CultureInfo.InvariantCulture),r.impedance_ohm.ToString(CultureInfo.InvariantCulture)}));}
             _status.Text="History exported to "+d.FileName;
         }
@@ -607,11 +607,11 @@ namespace FI2319Native
             ble.Connected+=a=>UI(()=>{SetConnection(true,"Conectat · "+a);SetActivity("Măsurare în curs","Urcați desculț pe cântar și rămâneți nemișcat(ă).",true,null);});
             ble.Disconnected+=()=>UI(()=>{SetConnection(false,"Deconectat");if(measurementPanel.Visibility==Visibility.Visible&&dashboard.Visibility!=Visibility.Visible)SetActivity("Cântarul este deconectat","Verificați dacă este pornit, apoi încercați din nou.",false,null);});
             ble.Weight+=(kg,stable)=>UI(()=>SetActivity(stable?"Greutate stabilă — se calculează BIA…":"Măsurare în curs",stable?"Rămâneți nemișcat(ă) până la finalizarea analizei.":"Greutatea a fost detectată. Rămâneți pe cântar.",true,kg));
-            ble.Result+=r=>UI(()=>Render(r,true,null));ble.Error+=s=>UI(()=>{SetActivity("Măsurarea nu a putut fi finalizată",RomanianStatus(s),false,null);SetConnection(false,"Deconectat");MessageBox.Show(w,RomanianStatus(s),"Cântar Clinică",MessageBoxButton.OK,MessageBoxImage.Warning);});
+            ble.Result+=r=>UI(()=>Render(r,true,null));ble.Error+=s=>UI(()=>{SetActivity("Măsurarea nu a putut fi finalizată",RomanianStatus(s),false,null);SetConnection(false,"Deconectat");MessageBox.Show(w,RomanianStatus(s),"Cântar FFB0",MessageBoxButton.OK,MessageBoxImage.Warning);});
         }
         void UI(Action a){if(w.Dispatcher.CheckAccess())a();else w.Dispatcher.BeginInvoke(a);}
         void ShowArchive(){if(measurementPanel.Visibility==Visibility.Visible)ble.Disconnect();archivePanel.Visibility=Visibility.Visible;measurementPanel.Visibility=Visibility.Collapsed;connectionPill.Visibility=Visibility.Collapsed;pageTitle.Text="Arhiva pacienților";pageSubtitle.Text="Măsurători organizate pe pacient și dată";Refresh();}
-        void ShowNew(){ble.Disconnect();archivePanel.Visibility=Visibility.Collapsed;measurementPanel.Visibility=Visibility.Visible;connectionPill.Visibility=Visibility.Visible;patientForm.Visibility=Visibility.Visible;detailHeader.Visibility=Visibility.Collapsed;empty.Visibility=Visibility.Visible;dashboard.Visibility=Visibility.Collapsed;pageTitle.Text="Măsurare nouă";pageSubtitle.Text="Înregistrați pacientul, apoi conectați cântarul FI2319WB-D";applyingSuggestion=true;name.Text="";height.Text="";age.Text="";sex.SelectedIndex=0;athlete.IsChecked=false;applyingSuggestion=false;suggestionsPopup.IsOpen=false;SetActivity("Pregătit pentru măsurare","Completați datele pacientului pentru a activa conectarea.",false,null);SetConnection(false,"Deconectat");ValidateInputs();}
+        void ShowNew(){ble.Disconnect();archivePanel.Visibility=Visibility.Collapsed;measurementPanel.Visibility=Visibility.Visible;connectionPill.Visibility=Visibility.Visible;patientForm.Visibility=Visibility.Visible;detailHeader.Visibility=Visibility.Collapsed;empty.Visibility=Visibility.Visible;dashboard.Visibility=Visibility.Collapsed;pageTitle.Text="Măsurare nouă";pageSubtitle.Text="Înregistrați pacientul, apoi conectați un cântar compatibil cu protocolul FFB0";applyingSuggestion=true;name.Text="";height.Text="";age.Text="";sex.SelectedIndex=0;athlete.IsChecked=false;applyingSuggestion=false;suggestionsPopup.IsOpen=false;SetActivity("Pregătit pentru măsurare","Completați datele pacientului pentru a activa conectarea.",false,null);SetConnection(false,"Deconectat");ValidateInputs();}
         void OpenSelected(){var r=grid.SelectedItem as HistoryRecord;if(r==null)return;ble.Disconnect();profile=new UserProfile{HeightCm=r.height_cm,Age=r.age,Male=r.sex!="Feminin",Athlete=r.athlete};archivePanel.Visibility=Visibility.Collapsed;measurementPanel.Visibility=Visibility.Visible;connectionPill.Visibility=Visibility.Collapsed;patientForm.Visibility=Visibility.Collapsed;detailHeader.Visibility=Visibility.Visible;pageTitle.Text="Rezultatul măsurătorii";pageSubtitle.Text="Fișă salvată în arhiva locală";detailPatient.Text=string.IsNullOrWhiteSpace(r.patient_name)?"Pacient fără nume":r.patient_name;detailMeta.Text=r.DateDisplay+"  ·  "+r.height_cm.ToString("F0")+" cm  ·  "+r.age+" ani  ·  "+r.sex;Render(r.ToResult(),false,r);}
         void ValidateInputs(){if(connect==null)return;double h;int a;connect.IsEnabled=!string.IsNullOrWhiteSpace(name.Text)&&double.TryParse(height.Text,NumberStyles.Float,CultureInfo.CurrentCulture,out h)&&h>=100&&h<=230&&int.TryParse(age.Text,out a)&&a>=18&&a<=120&&sex.SelectedIndex>=0;}
         void SetActivity(string title,string message,bool busy,double? kg)
@@ -688,7 +688,7 @@ namespace FI2319Native
             catch(Exception ex)
             {
                 printRegistered=false;
-                MessageBox.Show(w,"Serviciul modern de tipărire nu a putut fi inițializat: "+ex.Message,"Cântar Clinică",MessageBoxButton.OK,MessageBoxImage.Error);
+                MessageBox.Show(w,"Serviciul modern de tipărire nu a putut fi inițializat: "+ex.Message,"Cântar FFB0",MessageBoxButton.OK,MessageBoxImage.Error);
             }
         }
         void PrintTaskRequested(PrintManager sender,PrintTaskRequestedEventArgs args)
@@ -702,14 +702,14 @@ namespace FI2319Native
         }
         async Task ShowNativePrintDialog()
         {
-            if(currentResult==null||profile==null){MessageBox.Show(w,"Nu există un rezultat disponibil pentru tipărire.","Cântar Clinică");return;}
+            if(currentResult==null||profile==null){MessageBox.Show(w,"Nu există un rezultat disponibil pentru tipărire.","Cântar FFB0");return;}
             try
             {
                 if(!printRegistered)RegisterNativePrinting(w,new RoutedEventArgs());
                 if(!printRegistered)return;
                 await PrintManagerInterop.ShowPrintUIForWindowAsync(new WindowInteropHelper(w).Handle);
             }
-            catch(Exception ex){MessageBox.Show(w,"Dialogul Microsoft Print nu a putut fi deschis: "+ex.Message,"Cântar Clinică",MessageBoxButton.OK,MessageBoxImage.Error);}
+            catch(Exception ex){MessageBox.Show(w,"Dialogul Microsoft Print nu a putut fi deschis: "+ex.Message,"Cântar FFB0",MessageBoxButton.OK,MessageBoxImage.Error);}
         }
         public void StartNativePrintProbe(string markerPath)
         {
@@ -720,7 +720,7 @@ namespace FI2319Native
         {
             var r=currentResult;var rec=currentRecord;string patient=rec!=null&&!string.IsNullOrWhiteSpace(rec.patient_name)?rec.patient_name:name.Text.Trim();string date=rec!=null?rec.DateDisplay:DateTime.Now.ToString("dd.MM.yyyy, HH:mm",new CultureInfo("ro-RO"));
             var doc=new FlowDocument{FontFamily=new FontFamily("Segoe UI"),FontSize=10,Foreground=new SolidColorBrush(Color.FromRgb(26,40,58)),Background=Brushes.White,PageWidth=Math.Max(pageWidth,650),PageHeight=Math.Max(pageHeight,900),PagePadding=new Thickness(34),ColumnWidth=double.PositiveInfinity,ColumnGap=0};
-            var head=new Grid{Margin=new Thickness(0,0,0,13)};head.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});head.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});var brand=new StackPanel{VerticalAlignment=VerticalAlignment.Bottom};brand.Children.Add(new TextBlock{Text="FI2319 CLINIC SCALE",FontSize=20,FontWeight=FontWeights.Bold,Foreground=new SolidColorBrush(Color.FromRgb(19,34,56))});brand.Children.Add(new TextBlock{Text="Raport local de compoziție corporală",FontSize=10,Foreground=new SolidColorBrush(Color.FromRgb(104,120,141)),Margin=new Thickness(0,3,0,0)});head.Children.Add(brand);var reportInfo=new StackPanel{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom};reportInfo.Children.Add(new TextBlock{Text="RAPORT DE COMPOZIȚIE CORPORALĂ",FontSize=12,FontWeight=FontWeights.Bold,Foreground=new SolidColorBrush(Color.FromRgb(39,113,202))});reportInfo.Children.Add(new TextBlock{Text="Generat: "+DateTime.Now.ToString("dd.MM.yyyy, HH:mm"),FontSize=9,Foreground=new SolidColorBrush(Color.FromRgb(105,121,140)),HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,3,0,0)});Grid.SetColumn(reportInfo,1);head.Children.Add(reportInfo);doc.Blocks.Add(new BlockUIContainer(head));
+            var head=new Grid{Margin=new Thickness(0,0,0,13)};head.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});head.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});var brand=new StackPanel{VerticalAlignment=VerticalAlignment.Bottom};brand.Children.Add(new TextBlock{Text="FFB0 BODY SCALE",FontSize=20,FontWeight=FontWeights.Bold,Foreground=new SolidColorBrush(Color.FromRgb(19,34,56))});brand.Children.Add(new TextBlock{Text="Protocol FFB0 · raport local de compoziție corporală",FontSize=10,Foreground=new SolidColorBrush(Color.FromRgb(104,120,141)),Margin=new Thickness(0,3,0,0)});head.Children.Add(brand);var reportInfo=new StackPanel{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom};reportInfo.Children.Add(new TextBlock{Text="RAPORT DE COMPOZIȚIE CORPORALĂ",FontSize=12,FontWeight=FontWeights.Bold,Foreground=new SolidColorBrush(Color.FromRgb(39,113,202))});reportInfo.Children.Add(new TextBlock{Text="Generat: "+DateTime.Now.ToString("dd.MM.yyyy, HH:mm"),FontSize=9,Foreground=new SolidColorBrush(Color.FromRgb(105,121,140)),HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,3,0,0)});Grid.SetColumn(reportInfo,1);head.Children.Add(reportInfo);doc.Blocks.Add(new BlockUIContainer(head));
             var patientBox=new Border{Background=new SolidColorBrush(Color.FromRgb(239,246,253)),BorderBrush=new SolidColorBrush(Color.FromRgb(205,224,244)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Padding=new Thickness(14),Margin=new Thickness(0,0,0,12)};var patientStack=new StackPanel();patientBox.Child=patientStack;patientStack.Children.Add(new TextBlock{Text=patient,FontSize=17,FontWeight=FontWeights.Bold});patientStack.Children.Add(new TextBlock{Text=date+"  ·  "+profile.HeightCm.ToString("F0")+" cm  ·  "+profile.Age+" ani  ·  "+(profile.Male?"Masculin":"Feminin")+(profile.Athlete?"  ·  Mod sportiv":""),FontSize=10,Foreground=new SolidColorBrush(Color.FromRgb(94,112,132)),Margin=new Thickness(0,4,0,0)});doc.Blocks.Add(new BlockUIContainer(patientBox));
             var wa=References.WeightAssessment(r,profile);var weightBox=new Border{BorderBrush=new SolidColorBrush(Color.FromRgb(220,229,239)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Padding=new Thickness(14),Margin=new Thickness(0,0,0,11)};var wg=new Grid();weightBox.Child=wg;wg.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(220)});wg.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});var ws=new StackPanel();ws.Children.Add(new TextBlock{Text="GREUTATE",FontSize=9,FontWeight=FontWeights.Bold,Foreground=new SolidColorBrush(Color.FromRgb(116,133,152))});ws.Children.Add(new TextBlock{Text=r.weight_kg.ToString("F2")+" kg",FontSize=28,FontWeight=FontWeights.Bold});ws.Children.Add(new TextBlock{Text=L(wa.Label),FontSize=10,FontWeight=FontWeights.SemiBold,Foreground=Tone(wa.Tone)});ws.Children.Add(new TextBlock{Text="Interval normal: "+(18.5*Math.Pow(profile.HeightCm/100,2)).ToString("F1")+"–"+(23.9*Math.Pow(profile.HeightCm/100,2)).ToString("F1")+" kg",FontSize=9,Foreground=new SolidColorBrush(Color.FromRgb(104,120,139)),Margin=new Thickness(0,3,0,0)});wg.Children.Add(ws);var wbar=new ScaleBar{Width=330,Margin=new Thickness(12,25,0,0)};wbar.Configure(r.weight_kg,References.WeightSpec(r,profile));Grid.SetColumn(wbar,1);wg.Children.Add(wbar);doc.Blocks.Add(new BlockUIContainer(weightBox));
             string[] labels={"IMC","Grăsime corporală","Apă corporală","Masă musculară","Mușchi scheletici","Proteine","Grăsime viscerală","Masă osoasă","Metabolism bazal","Vârstă metabolică","Scor corporal","Grăsime subcutanată","Puls","Impedanță"};
@@ -749,7 +749,7 @@ namespace FI2319Native
         void Add(string label,string field,double value,string display,MeasurementResult r){var a=References.Assess(field,value,r,profile);var b=new Border{Background=Brushes.White,BorderBrush=new SolidColorBrush(Color.FromRgb(223,231,240)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(14),Padding=new Thickness(16,14,16,12),Margin=new Thickness(5)};var s=new StackPanel();b.Child=s;s.Children.Add(new TextBlock{Text=label.ToUpperInvariant(),Foreground=new SolidColorBrush(Color.FromRgb(116,132,151)),FontSize=11,FontWeight=FontWeights.SemiBold});s.Children.Add(new TextBlock{Text=display,Foreground=new SolidColorBrush(Color.FromRgb(18,32,51)),FontSize=26,FontWeight=FontWeights.Bold,Margin=new Thickness(0,5,0,1)});s.Children.Add(new TextBlock{Text=L(a.Label),Foreground=Tone(a.Tone),FontSize=12,FontWeight=FontWeights.SemiBold});s.Children.Add(new TextBlock{Text=L(a.Reference),Foreground=new SolidColorBrush(Color.FromRgb(104,119,139)),FontSize=10,Margin=new Thickness(0,3,0,0)});var bar=new ScaleBar{Margin=new Thickness(0,8,0,0)};bar.Configure(value,References.Spec(field,value,r,profile));s.Children.Add(bar);cards.Children.Add(b);}
         void Refresh(){string q=(search==null?"":search.Text).Trim();var filtered=rows.Where(r=>string.IsNullOrEmpty(q)||(r.patient_name??"").IndexOf(q,StringComparison.CurrentCultureIgnoreCase)>=0||r.DateDisplay.IndexOf(q,StringComparison.CurrentCultureIgnoreCase)>=0).ToList();grid.ItemsSource=null;grid.ItemsSource=filtered;F<StackPanel>("ArchiveEmpty").Visibility=filtered.Count==0?Visibility.Visible:Visibility.Collapsed;count.Text=filtered.Count+" "+(filtered.Count==1?"măsurătoare":"măsurători");}
         void Export(){var d=new SaveFileDialog{Title="Exportă arhiva",Filter="Fișiere CSV (*.csv)|*.csv",FileName="arhiva-cantar-clinica.csv"};if(d.ShowDialog(w)!=true)return;using(var sw=new StreamWriter(d.FileName,false,new UTF8Encoding(true))){sw.WriteLine("pacient,data,inaltime_cm,varsta,sex,greutate_kg,imc,grasime_corporala,apa_corporala,puls");foreach(var r in rows)sw.WriteLine(string.Join(",",new[]{"\""+(r.patient_name??"").Replace("\"","\"\"")+"\"",r.measured_at,r.height_cm.ToString(CultureInfo.InvariantCulture),r.age.ToString(),r.sex,r.weight_kg.ToString(CultureInfo.InvariantCulture),r.bmi.ToString(CultureInfo.InvariantCulture),r.body_fat_percent.ToString(CultureInfo.InvariantCulture),r.body_water_percent.ToString(CultureInfo.InvariantCulture),r.heart_rate_bpm.ToString(CultureInfo.InvariantCulture)}));}}
-        string RomanianStatus(string s){return (s??"").Replace("Looking for FI2319WB-D","Se caută FI2319WB-D").Replace("briefly step on the scale to wake it","țineți un picior pe cântar pentru a-l menține activ").Replace("Scanning","Se caută cântarul").Replace("Connecting to MY_SCALE","Se conectează la MY_SCALE").Replace("Opening scale service FFB0","Se deschide serviciul FFB0").Replace("attempt","încercarea").Replace("of 8","din 8").Replace("Keep the scale awake","Mențineți cântarul activ").Replace("Could not connect:","Conectarea nu a reușit:").Replace("Scale service FFB0 was unavailable after several attempts","Serviciul FFB0 nu a fost disponibil după mai multe încercări").Replace("Close Fitdays+ on nearby phones and keep one foot on the scale while connecting","Închideți Fitdays+ pe telefoanele din apropiere și țineți un picior pe cântar în timpul conectării").Replace("Not connected","Neconectat").Replace("Measurement","Măsurare").Replace("Scale found","Cântar găsit");}
+        string RomanianStatus(string s){return (s??"").Replace("Looking for an FFB0-compatible scale","Se caută un cântar compatibil cu protocolul FFB0").Replace("briefly step on it to wake it","țineți un picior pe cântar pentru a-l menține activ").Replace("Scanning","Se caută cântarul").Replace("Connecting to FFB0 scale","Se conectează la cântarul FFB0").Replace("Opening scale service FFB0","Se deschide serviciul FFB0").Replace("attempt","încercarea").Replace("of 8","din 8").Replace("Keep the scale awake","Mențineți cântarul activ").Replace("Could not connect:","Conectarea nu a reușit:").Replace("Scale service FFB0 was unavailable after several attempts","Serviciul FFB0 nu a fost disponibil după mai multe încercări").Replace("Close Fitdays+ on nearby phones and keep one foot on the scale while connecting","Închideți Fitdays+ pe telefoanele din apropiere și țineți un picior pe cântar în timpul conectării").Replace("Not connected","Neconectat").Replace("Measurement","Măsurare").Replace("Scale found","Cântar găsit");}
         public void Dispose(){if(printManager!=null)printManager.PrintTaskRequested-=PrintTaskRequested;ble.Dispose();}
     }
 
@@ -767,7 +767,7 @@ namespace FI2319Native
                 try{var p=new UserProfile{HeightCm=178,Age=18,Male=true};var r=BodyMath.Compute(63.85,500,93,p);if(Math.Abs(r.bmi-20.2)>.01)return 2;return 0;}catch{return 1;}
             }
             try{var app=new Application();var scale=new ClinicApplication();var window=scale.CreateWindow();if(args.Any(x=>x=="--native-print-probe")){int i=Array.IndexOf(args,"--native-print-probe");if(i<0||i+1>=args.Length)return 4;scale.StartNativePrintProbe(args[i+1]);}app.Run(window);return 0;}
-            catch(Exception ex){MessageBox.Show(ex.ToString(),"Eroare la pornirea Cântar Clinică",MessageBoxButton.OK,MessageBoxImage.Error);return 1;}
+            catch(Exception ex){MessageBox.Show(ex.ToString(),"Eroare la pornirea Cântar FFB0",MessageBoxButton.OK,MessageBoxImage.Error);return 1;}
         }
     }
 }

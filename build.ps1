@@ -13,7 +13,7 @@ if (Test-Path -LiteralPath $localSdk) {
 $publishDir = Join-Path $PSScriptRoot 'publish'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 
-& $dotnet publish (Join-Path $PSScriptRoot 'CantarClinica.csproj') `
+& $dotnet publish (Join-Path $PSScriptRoot 'FFB0BodyScale.csproj') `
     -c Release `
     -r win-x64 `
     --self-contained true `
@@ -27,4 +27,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Modern native-print build failed with exit code $LASTEXITCODE"
 }
 
-Get-Item -LiteralPath (Join-Path $publishDir 'FI2319 Clinic Scale.exe')
+Get-Item -LiteralPath (Join-Path $publishDir 'FFB0 Body Scale.exe')
