@@ -12,9 +12,9 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <StartupObject>FI2319Native.Program</StartupObject>
-    <AssemblyName>FI2319 Clinic Scale</AssemblyName>
-    <RootNamespace>FI2319Native</RootNamespace>
+    <StartupObject>FFB0Scale.Program</StartupObject>
+    <AssemblyName>FFB0 Body Scale</AssemblyName>
+    <RootNamespace>FFB0Scale</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
