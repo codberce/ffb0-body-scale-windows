@@ -13,6 +13,12 @@ A privacy-first Windows desktop application for body-composition scales that imp
 - Uses the native Microsoft print dialog with an A4 report preview, physical printers, and Microsoft Print to PDF.
 - Does not require Fitdays+ or a cloud account.
 
+## Download
+
+Download the latest prebuilt Windows x64 executable from [GitHub Releases](https://github.com/codberce/ffb0-body-scale-windows/releases/latest). The executable is self-contained, so the destination PC does not need a separate .NET installation. Each release also includes a SHA-256 checksum file for integrity verification.
+
+The application is currently unsigned, so Windows may display an unknown-publisher warning. Release binaries are built automatically from the corresponding public Git tag by the repository's GitHub Actions workflow.
+
 ## Requirements
 
 - Windows 11 x64.
